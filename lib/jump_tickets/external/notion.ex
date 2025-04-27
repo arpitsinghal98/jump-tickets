@@ -29,17 +29,39 @@ defmodule JumpTickets.External.Notion do
         {:ok, accumulated_results ++ parsed_results}
 
       error ->
-        {:error, "Failed to query database: #{inspect(error)}"}
+        Logger.error("Failed to query database: #{inspect(error)}")
+        {:error, :notion_query_failed}
     end
   end
 
   def get_ticket_by_page_id(page_id) do
-    case Notionex.API.retrieve_page(%{page_id: page_id}) do
-      %Notionex.Object.Page{} = page ->
-        __MODULE__.Parser.parse_ticket_page(page)
+    # double check env name if needed
+    notion_token = System.get_env("NOTION_SECRET")
 
-      _ ->
+    url = "https://api.notion.com/v1/pages/#{page_id}"
+
+    headers = [
+      {"Authorization", "Bearer #{notion_token}"},
+      {"Notion-Version", "2022-06-28"},
+      {"Content-Type", "application/json"}
+    ]
+
+    options = [
+      timeout: 15_000,
+      recv_timeout: 15_000
+    ]
+
+    case HTTPoison.get(url, headers, options) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+        body
+        |> Jason.decode!()
+        |> __MODULE__.Parser.parse_ticket_page()
+
+      {:ok, %HTTPoison.Response{status_code: status, body: body}} ->
         {:error, "Failed to get page #{page_id}"}
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, "HTTP error while fetching page #{page_id}"}
     end
   end
 
@@ -146,8 +168,8 @@ defmodule JumpTickets.External.Notion.Parser do
       title: Map.get(properties, "Title") |> extract_title(),
       intercom_conversations:
         Map.get(properties, "Intercom Conversations") |> extract_rich_text(),
-      summary: Map.get(properties, "children") |> extract_rich_text(),
       slack_channel: Map.get(properties, "Slack Channel") |> extract_rich_text()
+      # summary: nil # REMOVE summary field here because children are not coming yet
     }
   end
 

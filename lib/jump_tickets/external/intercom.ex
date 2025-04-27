@@ -7,7 +7,8 @@ defmodule JumpTickets.External.Intercom do
 
   def get_conversation(conversation_id) do
     case Client.get("/conversations/#{conversation_id}?display_as=plaintext") do
-      {:ok, %Tesla.Env{status: 200, body: body}} ->
+      {:ok, %Tesla.Env{status: 200, body: body} = response} ->
+        IO.inspect(response, label: "📨 Intercom conversation fetched")
         {:ok, Parser.parse_conversation(body)}
 
       {:ok, %Tesla.Env{status: status, body: body}} ->

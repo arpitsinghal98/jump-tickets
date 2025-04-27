@@ -37,6 +37,7 @@ defmodule JumpTicketsWeb.Router do
 
     post "/initialize", IntercomController, :initialize
     post "/submit", IntercomController, :submit
+    post "/ticket-done", TicketDoneController, :notion_webhook
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

@@ -39,7 +39,11 @@ config :jump_tickets,
 config :jump_tickets, :intercom, admin_id: System.get_env("INTERCOM_ADMIN_ID")
 
 config :notionex,
-  bearer_token: System.get_env("NOTION_SECRET")
+  bearer_token: System.get_env("NOTION_SECRET"),
+  http_options: [
+    timeout: 15_000,
+    recv_timeout: 15_000
+  ]
 
 config :jump_tickets, :slack, bot_token: System.get_env("SLACK_BOT_TOKEN")
 

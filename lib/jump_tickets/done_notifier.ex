@@ -14,6 +14,16 @@ defmodule JumpTickets.Ticket.DoneNotifier do
   @doc """
   Sends a done notification to the ticket’s Slack channel and all linked Intercom conversations.
   """
+
+  # Helper to extract Slack Channel ID from URL
+  defp extract_channel_id(slack_url) when is_binary(slack_url) do
+    case Regex.run(~r/client\/T[A-Z0-9]+\/(C[A-Z0-9]+)/, slack_url) do
+      [_, channel_id] -> channel_id
+      _ -> nil
+    end
+  end
+
+
   def notify_ticket_done(
         %{
           ticket_id: ticket_id,
@@ -51,15 +61,16 @@ defmodule JumpTickets.Ticket.DoneNotifier do
   defp post_slack_message(nil, _), do: {:error, :no_slack_channel}
 
   defp post_slack_message(slack_channel, message) do
-    case URI.parse(slack_channel) do
-      %URI{path: path} ->
-        channel_id = JumpTickets.IntegrationRequest.get_channel_id(path, 2)
-        Slack.post_message(channel_id, message)
+  channel_id = extract_channel_id(slack_channel)
 
-      _ ->
-        {:error, :invalid_slack_channel_url}
-    end
+  if channel_id do
+    result = Slack.post_message(channel_id, message)
+    result
+  else
+    {:error, :invalid_slack_channel_url}
   end
+end
+
 
   defp parse_intercom_conversations(nil), do: []
 
@@ -72,12 +83,11 @@ defmodule JumpTickets.Ticket.DoneNotifier do
   end
 
   defp extract_conversation_id(url) do
-    # Assuming conversation URLs are in the format:
-    # "https://app.intercom.io/a/apps/APP_ID/conversations/CONVERSATION_ID"
     case URI.parse(url) do
-      %URI{path: path} ->
-        parts = String.split(path, "/")
-        List.last(parts)
+      %URI{path: path} when not is_nil(path) ->
+        path
+        |> String.split("/")
+        |> List.last()
 
       _ ->
         url
